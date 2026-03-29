@@ -1,27 +1,30 @@
 import asyncio  # type: ignore
 import os  # type: ignore
 import time  # type: ignore
+import threading  # type: ignore
 import requests  # type: ignore
 import pygame  # type: ignore
 import edge_tts  # type: ignore
 import speech_recognition as sr  # type: ignore
-import pyautogui  # type: ignore
-import cv2  # type: ignore
 import subprocess  # type: ignore
-from geopy.geocoders import Nominatim  # type: ignore
+import cv2  # type: ignore
+import pyautogui  # type: ignore
+import psutil  # type: ignore
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
+from comtypes import CLSCTX_ALL  # type: ignore
+import screen_brightness_control as sbc  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 from telegram import Update  # type: ignore
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes  # type: ignore
 from telegram.request import HTTPXRequest  # type: ignore
-from dotenv import load_dotenv  # type: ignore
-import psutil  # type: ignore
-import screen_brightness_control as sbc  # type: ignore
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
-from comtypes import CLSCTX_ALL  # type: ignore
-from duckduckgo_search import DDGS  # type: ignore
-import easyocr  # type: ignore
 import pygetwindow as gw  # type: ignore
 from jarvis_hud import JarvisHUD  # type: ignore
-import multiprocessing
+import multiprocessing  # type: ignore
+import bleak  # type: ignore
+from zeroconf import Zeroconf, ServiceBrowser  # type: ignore
+from kasa import Discover  # type: ignore
+import easyocr  # type: ignore
+from duckduckgo_search import DDGS  # type: ignore
 
 # Load Environment Variables
 load_dotenv()  # type: ignore
@@ -37,6 +40,9 @@ TEMP_SETTING = float(os.getenv("TEMP_SETTING", 0.9))
 pygame.mixer.init()  # type: ignore
 recognizer = sr.Recognizer()  # type: ignore
 conversation_history = []
+sentry_active = False # type: ignore
+main_event_loop = None # type: ignore
+bot_app = None # type: ignore
 
 # -------- PRECISION LOCATION MODULE (FIXED) --------
 def get_detailed_location():
@@ -73,12 +79,43 @@ def get_system_stats():
 
 def set_volume(level):
     try:
+        from comtypes import CLSCTX_ALL  # type: ignore
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
+        from ctypes import cast, POINTER  # type: ignore
         devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-        volume = interface.QueryInterface(IAudioEndpointVolume)
-        volume.SetMasterVolumeLevelScalar(float(level) / 100, None)
-        return f"Audio output calibrated to {level}%."
-    except: return "Audio override failure, Sir."
+        
+        vol_control = None
+        # Try Method A: GetVolumeControl()
+        try:
+            vol_control = devices.GetVolumeControl()
+            print("[Volume] Access: GetVolumeControl SUCCESS.")
+        except: pass
+        
+        # Try Method B: .endpoint.Activate
+        if not vol_control:
+            try:
+                vol_control = cast(devices.endpoint.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
+                print("[Volume] Access: endpoint.Activate SUCCESS.")
+            except: pass
+            
+        # Try Method C: Direct Activate
+        if not vol_control:
+            try:
+                vol_control = cast(devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
+                print("[Volume] Access: Direct Activate SUCCESS.")
+            except: pass
+
+        if vol_control:
+            vol_control.SetMasterVolumeLevelScalar(float(level) / 100, None)  # type: ignore
+            return f"Audio output calibrated to {level}%."
+            
+        raise Exception("All COM methods failed.")
+    except Exception as e:
+        print(f"[Volume Error] {str(e)}")
+        try:
+            os.system(f"powershell -c \"(new-object -com wscript.shell).SendKeys([char]174*50); (new-object -com wscript.shell).SendKeys([char]175*{int(int(level)/2)})\"")
+            return f"Audio output calibrated to {level}% (Shell Fallback)."
+        except: return "Audio override failure, Sir."
 
 def set_brightness(level):
     try:
@@ -140,6 +177,98 @@ def screen_vision_logic():
         text_content = " ".join(results[:50]) # Limit to 50 segments
         return f"Screen Pulse Summary: {text_content}"
     except Exception as e: return f"Optic scan malfunction, Sir: {str(e)}"
+
+# -------- ZENITH PULSE MODULE (NEW) --------
+async def ble_scan_logic():
+    try:
+        devices = await bleak.BleakScanner.discover(timeout=5.0)
+        if not devices: return "Pulse Scan: No BLE signatures detected in range, Sir."
+        
+        results = [f"- {d.name or 'Unknown'} [{d.address}] ({d.rssi}dBm)" for d in devices[:10]]
+        return "BLE Pulse Detected:\n" + "\n".join(results)
+    except Exception as e: return f"BLE Pulse Failure: {str(e)}"
+
+class ZeroconfListener:
+    def __init__(self): self.found = []
+    def add_service(self, zc, type, name):
+        info = zc.get_service_info(type, name)
+        if info: self.found.append(f"{name} ({info.parsed_addresses()[0]})")
+
+async def network_discovery_logic():
+    try:
+        zc = Zeroconf()
+        listener = ZeroconfListener()
+        # Common service types to scan
+        types = ["_http._tcp.local.", "_printer._tcp.local.", "_googlecast._tcp.local.", "_spotify-connect._tcp.local."]
+        browsers = [ServiceBrowser(zc, t, listener) for t in types]
+        await asyncio.sleep(3)
+        zc.close()
+        
+        if not listener.found: return "Network Pulse: No mDNS services identified, Sir."
+        unique_nodes = list(set(listener.found))
+        return "Network Pulse Detected:\n" + "\n".join(unique_nodes[:10])  # type: ignore
+    except Exception as e: return f"Network Pulse Failure: {str(e)}"
+
+async def kasa_control_logic(command):
+    try:
+        devices = await Discover.discover()
+        if not devices: return "Kasa Protocol: No smart devices found on this grid, Sir."
+        
+        cmd = command.lower()
+        for addr, dev in devices.items():
+            await dev.update()
+            if "on" in cmd: await dev.turn_on(); return f"Kasa: {dev.alias} powered ON."
+            if "off" in cmd: await dev.turn_off(); return f"Kasa: {dev.alias} powered OFF."
+        
+        counts = len(devices)
+        return f"Kasa Pulse: {counts} smart devices identified on the grid."
+    except Exception as e: return f"Kasa Protocol Failure: {str(e)}"
+
+# -------- ZENITH SENTRY MODULE (NEW) --------
+def sentry_mode_logic():
+    global sentry_active
+    print("[SENTRY] Vision Defense Initializing...")
+    cap = cv2.VideoCapture(0)
+    ret, frame1 = cap.read()
+    ret, frame2 = cap.read()
+    
+    while sentry_active:
+        try:
+            diff = cv2.absdiff(frame1, frame2)
+            gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            _, thresh = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)
+            dilated = cv2.dilate(thresh, None, iterations=3)
+            contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for contour in contours:
+                if cv2.contourArea(contour) < 5000: continue
+                # MOTION DETECTED
+                print("[SENTRY] INTRUSION DETECTED!")
+                filename = f"intruder_{int(time.time())}.jpg"
+                cv2.imwrite(filename, frame2)
+                
+                # Signal the bot to send alert
+                if main_event_loop:
+                    asyncio.run_coroutine_threadsafe(
+                        speak_async("Security breach detected. User notified."), 
+                        main_event_loop
+                    )
+                    if bot_app:
+                        asyncio.run_coroutine_threadsafe(
+                            bot_app.bot.send_photo(chat_id=AUTHORIZED_USER_ID, photo=open(filename, 'rb'), caption="🚨 Zenith Sentry: INTRUSION DETECTED!"),
+                            main_event_loop
+                        )
+                # Send to Telegram (Logic handled via an alert function)
+                # For simplicity, we'll just log it here for now until we link the bot app
+                
+            frame1 = frame2
+            ret, frame2 = cap.read()
+            if not ret: break
+            time.sleep(0.5)
+        except: break
+    cap.release()
+    print("[SENTRY] Vision Defense Offline.")
 
 # -------- SMART COMMAND HANDLER (ENHANCED) --------
 def process_command(command):
@@ -205,6 +334,51 @@ def process_command(command):
         os.system(f"start {target}")
         return f"Launching {target}."
     
+    # Zenith Pulse Commands (Redirect to async handlers)
+    if "scan" in cmd or "pulse" in cmd or "devices" in cmd:
+        return "PULSE_INTERNAL_TRIGGER" # Special token for voice/telegram loops
+
+    # Zenith Sentry
+    if "activate sentry" in cmd or "sentry mode on" in cmd:
+        global sentry_active
+        if sentry_active: return "Sentry Mode is already active, Sir."
+        sentry_active = True
+        threading.Thread(target=sentry_mode_logic, daemon=True).start()
+        return "Vision Defense Grid: ACTIVE. Monitoring for intrusions."
+    
+    if "deactivate sentry" in cmd or "sentry mode off" in cmd:
+        sentry_active = False
+        return "Vision Defense Grid: STANDBY. Security monitoring suspended."
+
+    # -------- SYSTEM OVERLORD PROTOCOLS (NEW) --------
+    if "kill" in cmd or "terminate" in cmd:
+        target = cmd.replace("kill", "").replace("terminate", "").strip()
+        for proc in psutil.process_iter(['name']):
+            if target.lower() in proc.info['name'].lower():  # type: ignore
+                proc.terminate()
+                return f"Overlord: Process {proc.info['name']} has been terminated, Sir."  # type: ignore
+        return f"Overlord: Target {target} not found in the active process array."
+
+    if "shutdown" in cmd:
+        os.system("shutdown /s /t 60")
+        return "Overlord: System shutdown initiated. 60-second countdown in effect, Sir."
+    
+    if "restart" in cmd:
+        os.system("shutdown /r /t 60")
+        return "Overlord: System restart initiated. 60-second countdown in effect, Sir."
+
+    if "sleep" in cmd or "hibernate" in cmd:
+        os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
+        return "Overlord: System entering sleep mode. Standby initiated."
+
+    if "minimize all" in cmd or "clear screen" in cmd:
+        pyautogui.hotkey('win', 'd')
+        return "Overlord: All visual arrays minimized. Workspace cleared."
+
+    if "list windows" in cmd or "active windows" in cmd:
+        wins = [w.title for w in gw.getAllWindows() if w.title]
+        return "Active Window Array:\n" + "\n".join(wins[:10])  # type: ignore
+
     return None # Hand over to AI Brain
 
 # -------- REMOTE GHOST PROTOCOL (Telegram) --------
@@ -225,7 +399,13 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Check for system/web command first
             reply = process_command(user_msg)
-            if not reply: reply = await jarvis_brain(user_msg)
+            if reply == "PULSE_INTERNAL_TRIGGER":
+                await update.message.reply_text("Scanning range for active pulses, Sir...")  # type: ignore
+                ble = await ble_scan_logic()
+                net = await network_discovery_logic()
+                kasa = await kasa_control_logic(user_msg)
+                reply = f"{ble}\n\n{net}\n\n{kasa}"
+            elif not reply: reply = await jarvis_brain(user_msg)
         
         print(f"[JARVIS REPLY]: {reply}")
         await update.message.reply_text(reply)  # type: ignore
@@ -241,15 +421,56 @@ def scan_network_native():
 
 # -------- VOICE & AI BRAIN --------
 async def speak_async(text):
+    if not text: return
     filename = f"v_{int(time.time())}.mp3"
     try:
-        await edge_tts.Communicate(text, "en-IN-PrabhatNeural").save(filename)  # type: ignore
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+            
+        print(f"[TTS] Synthesizing: {text[:30]}...")
+        # Professional American Voice: en-US-AndrewNeural with +50% boost
+        communicate = edge_tts.Communicate(text, "en-US-AndrewNeural", volume="+50%")
+        await communicate.save(filename)
+        
+        # Force Master Volume (Sequential Fallback)
+        try:
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
+            from comtypes import CLSCTX_ALL  # type: ignore
+            from ctypes import cast, POINTER  # type: ignore
+            devices = AudioUtilities.GetSpeakers()
+            vol_control = None
+            
+            try: vol_control = devices.GetVolumeControl()
+            except:
+                try: vol_control = cast(devices.endpoint.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
+                except:
+                    try: vol_control = cast(devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
+                    except: pass
+            
+            if vol_control:
+                # Only boost if volume is extremely low (< 10%)
+                current_vol = vol_control.GetMasterVolumeLevelScalar()  # type: ignore
+                if current_vol < 0.1:
+                    vol_control.SetMasterVolumeLevelScalar(0.5, None)  # type: ignore
+                    print("[TTS] Safety Boost: Mute -> 50%")
+        except Exception as ve: print(f"[TTS Volume Warning]: {str(ve)}")
+
+        pygame.mixer.music.set_volume(1.0) # Ensure internal mixer is at 100%
         pygame.mixer.music.load(filename)
         pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy(): await asyncio.sleep(0.1)
+        while pygame.mixer.music.get_busy():
+            await asyncio.sleep(0.1)
+            
+        pygame.mixer.music.stop()
         pygame.mixer.music.unload()
-        os.remove(filename)
-    except: pass
+        if os.path.exists(filename):
+            os.remove(filename)
+        print("[TTS] Speak Complete.")
+    except Exception as e:
+        print(f"[TTS Error]: {e} (Voice: en-IN-PrabhatNeural)")
+        if os.path.exists(filename):
+            try: os.remove(filename)
+            except: pass
 
 async def jarvis_brain(command):
     global conversation_history
@@ -308,7 +529,13 @@ async def voice_interface():
                         # Check for system/web command first
                         response = process_command(cmd)
                         
-                        if not response:
+                        if response == "PULSE_INTERNAL_TRIGGER":
+                            await speak_async("Broadcasting pulse on all frequencies, Sir.")
+                            ble = await ble_scan_logic()
+                            net = await network_discovery_logic()
+                            kasa = await kasa_control_logic(cmd)
+                            response = f"Discovery complete. {ble}. {net}. {kasa}"
+                        elif not response:
                             if "photo" in cmd or "camera" in cmd:
                                 path, status = capture_photo()
                                 if path:
@@ -326,13 +553,14 @@ async def voice_interface():
                 except: continue
 
 async def run_bot():
+    global bot_app
     t_request = HTTPXRequest(connect_timeout=30, read_timeout=30)  # type: ignore
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).request(t_request).build()  # type: ignore
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_telegram))  # type: ignore
+    bot_app = ApplicationBuilder().token(TELEGRAM_TOKEN).request(t_request).build()  # type: ignore
+    bot_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_telegram))  # type: ignore
     print("[TELEGRAM] Online. Timeout Shield Active.")
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
+    await bot_app.initialize()
+    await bot_app.start()
+    await bot_app.updater.start_polling()
 
 def _start_hud_process():
     try:
@@ -342,6 +570,9 @@ def _start_hud_process():
         print(f"HUD Crash: {e}")
 
 async def start_apex_ultra():
+    global main_event_loop
+    main_event_loop = asyncio.get_running_loop()
+    
     # Start HUD in a separate process to avoid Tkinter thread blocking
     try:
         hud_process = multiprocessing.Process(target=_start_hud_process)

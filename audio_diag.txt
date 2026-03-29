@@ -1,0 +1,136 @@
+--- Method 1: GetSpeakers() directly ---
+Device Wrapper Type: <class 'pycaw.utils.AudioDevice'>
+
+--- Method 2: GetAllDevices() ---
+Device: Headphones (Rockerz 550) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (Rockerz 550 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (2- Nahimic VAD) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: NVIDIA Output (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (FT_38086_4581) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (pTron TWS Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (2- Realtek(R) Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: TS35505 (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset Earphone (realme Pocket Speaker Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (realme Buds Wireless 3) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (NM-LE31) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (OnePlus BulletsWireless Z2 ANC) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (FT_38086_4581 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (V90) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (PUNCH 102 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: NVIDIA Output (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (OnePlus BulletsWireless Z2 ANC Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (realme Pocket Speaker) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (K1) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (2- Nahimic Easy Surround device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (2- PUNCH 102) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Digital Audio (HDMI) (High Definition Audio Device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (2- pTron TWS) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (2- Nahimic mirroring device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (NM-LE31 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones (Noise Buds VS102 NEO) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (K1 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headphones ( FIRE) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (V90 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: EPSON PJ (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: EPSON PJ (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset ( FIRE Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Digital Audio (HDMI) (High Definition Audio Device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (JBL GO Essential) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Speakers (2- Realtek(R) Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Internal AUX Jack (High Definition Audio Device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (K1 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (pTron TWS Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Microphone (2- Realtek(R) Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset ( FIRE Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (OnePlus BulletsWireless Z2 ANC Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Internal AUX Jack (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset Microphone (realme Pocket Speaker Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Stereo Mix (2- Realtek(R) Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (V90 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (Noise Buds VS102 NEO) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Internal AUX Jack (High Definition Audio Device) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (Rockerz 550 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (NM-LE31 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Microphone Array (2- Realtek(R) Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Internal AUX Jack (NVIDIA High Definition Audio) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (FT_38086_4581 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: None | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (realme Buds Wireless 3) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'
+Device: Headset (PUNCH 102 Hands-Free) | Wrapper: <class 'pycaw.utils.AudioDevice'>
+  - [ERR] 'AudioDevice' object has no attribute 'Activate'

@@ -1,0 +1,1 @@
+Device Wrapper: <class 'pycaw.utils.AudioDevice'>
