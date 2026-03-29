@@ -25,6 +25,8 @@ from zeroconf import Zeroconf, ServiceBrowser  # type: ignore
 from kasa import Discover  # type: ignore
 import easyocr  # type: ignore
 from duckduckgo_search import DDGS  # type: ignore
+from geopy.geocoders import Nominatim  # type: ignore
+import datetime  # type: ignore
 
 # Load Environment Variables
 load_dotenv()  # type: ignore
@@ -88,34 +90,37 @@ def set_volume(level):
         # Try Method A: GetVolumeControl()
         try:
             vol_control = devices.GetVolumeControl()
-            print("[Volume] Access: GetVolumeControl SUCCESS.")
         except: pass
         
         # Try Method B: .endpoint.Activate
         if not vol_control:
-            try:
-                vol_control = cast(devices.endpoint.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
-                print("[Volume] Access: endpoint.Activate SUCCESS.")
+            try: vol_control = cast(devices.endpoint.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
             except: pass
-            
-        # Try Method C: Direct Activate
-        if not vol_control:
-            try:
-                vol_control = cast(devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None), POINTER(IAudioEndpointVolume))
-                print("[Volume] Access: Direct Activate SUCCESS.")
-            except: pass
-
+        
         if vol_control:
             vol_control.SetMasterVolumeLevelScalar(float(level) / 100, None)  # type: ignore
-            return f"Audio output calibrated to {level}%."
+            return f"Audio output calibrated to {level}% (COM SUCCESS)."
             
         raise Exception("All COM methods failed.")
     except Exception as e:
         print(f"[Volume Error] {str(e)}")
+        # Layer 3: Hardware Key Simulation (The Ultimate Override)
         try:
-            os.system(f"powershell -c \"(new-object -com wscript.shell).SendKeys([char]174*50); (new-object -com wscript.shell).SendKeys([char]175*{int(int(level)/2)})\"")
-            return f"Audio output calibrated to {level}% (Shell Fallback)."
-        except: return "Audio override failure, Sir."
+            import ctypes  # type: ignore
+            # VK_VOLUME_DOWN: 0xAE, VK_VOLUME_UP: 0xAF
+            # Ensure we are at 0 first by sending 50 VOLUME_DOWN commands
+            for _ in range(50): 
+                ctypes.windll.user32.keybd_event(0xAE, 0, 0, 0)  # type: ignore
+                ctypes.windll.user32.keybd_event(0xAE, 0, 0x0002, 0)  # type: ignore
+            # Now go up to the target (each step is 2%)
+            steps = int(int(level) / 2)
+            for _ in range(steps): 
+                ctypes.windll.user32.keybd_event(0xAF, 0, 0, 0)  # type: ignore
+                ctypes.windll.user32.keybd_event(0xAF, 0, 0x0002, 0)  # type: ignore
+            return f"Audio output calibrated to {level}% (Hardware Control)."
+        except Exception as se:
+            print(f"[Shell Error] {se}")
+            return "Audio override failure, Sir."
 
 def set_brightness(level):
     try:
@@ -293,11 +298,9 @@ def process_command(command):
 
     # Time & Date (handle before web search to avoid false-positive)
     if "time" in cmd and ("what" in cmd or "tell" in cmd or "current" in cmd):
-        import datetime
         now = datetime.datetime.now()
         return f"Current time: {now.strftime('%I:%M %p')}, {now.strftime('%A, %d %B %Y')}."
     if "date" in cmd:
-        import datetime
         return f"Today is {datetime.datetime.now().strftime('%A, %d %B %Y')}."
 
     # Web Search — extract query properly
