@@ -3,11 +3,12 @@ import subprocess
 
 def create_jarvis_shortcut():
     """Create a professional Desktop Shortcut for JARVIS using a VBS helper."""
-    # Fixed desktop path for the user's OneDrive-synced setup
-    desktop = r"c:\Users\heman\OneDrive\Desktop"
+    # Automatically resolve the system Desktop path (OneDrive aware)
+    import subprocess
+    desktop = subprocess.check_output(["powershell", "-command", "[Environment]::GetFolderPath('Desktop')"], text=True).strip()
     shortcut_path = os.path.join(desktop, "JARVIS.lnk")
     target_path = os.path.join(os.getcwd(), "launcher.bat")
-    icon_path = r"C:\Users\heman\.gemini\antigravity\brain\f7855b3a-2702-4d89-b75e-a3c6f7d2bf24\jarvis_core_arc_reactor_1774965234132.png"
+    icon_path = os.path.join(os.getcwd(), "jarvis_logo.ico") # Use local ICO for Windows Shell
     
     if not os.path.exists(icon_path):
         # Fallback to a placeholder icon if the primary is missing

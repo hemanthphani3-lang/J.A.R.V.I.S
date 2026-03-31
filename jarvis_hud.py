@@ -34,8 +34,7 @@ class JarvisHUD(ctk.CTk):
         try:
             # Look for icon in current directory or specific asset paths
             possible_icons = [
-                r"C:\Users\heman\.gemini\antigravity\brain\f7855b3a-2702-4d89-b75e-a3c6f7d2bf24\jarvis_core_arc_reactor_1774965234132.png",
-                "jarvis_icon.png"
+                "jarvis_logo.png"
             ]
             icon_path = None
             for p in possible_icons:
@@ -89,7 +88,17 @@ class JarvisHUD(ctk.CTk):
 
         # Status Pulse
         self.status_lbl = ctk.CTkLabel(self.main_frame, text="AGENT ONLINE", font=("Orbitron", 8), text_color="#557799")
-        self.status_lbl.pack(side="bottom", pady=10)
+        self.status_lbl.pack(side="bottom", pady=5)
+
+        # NEURAL INPUT CONSOLE (MANUAL OVERRIDE)
+        self.input_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent", height=40)
+        self.input_frame.pack(side="bottom", fill="x", padx=20, pady=(0, 5))
+        
+        self.cmd_entry = ctk.CTkEntry(self.input_frame, placeholder_text="Neural Command...", 
+                                     font=("Consolas", 10), fg_color="#050505", border_color="#1A2436", 
+                                     text_color="#00F0FF", height=30)
+        self.cmd_entry.pack(fill="x")
+        self.cmd_entry.bind("<Return>", self.submit_neural_command)
 
         # Start background threads
         threading.Thread(target=self.metrics_pulse, daemon=True).start()
@@ -251,6 +260,14 @@ class JarvisHUD(ctk.CTk):
             
             self.after(50, self.animate_omega)
         except: pass
+
+    def submit_neural_command(self, event=None):
+        cmd = self.cmd_entry.get().strip()
+        if cmd and self.message_queue:
+            # Send to main process with special tag
+            self.message_queue.put(f"CMD_INPUT: {cmd}")
+            self.cmd_entry.delete(0, 'end')
+            self.inject_dialog("USER", cmd)
 
     def drag_window(self, event):
         x = self.winfo_pointerx() - 150 # Centered on icon
