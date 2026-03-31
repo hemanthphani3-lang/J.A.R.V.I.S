@@ -5,7 +5,7 @@ deps = [
     "requests", "pygame", "edge_tts", "speech_recognition", "cv2", 
     "pyautogui", "psutil", "pycaw", "comtypes", "screen_brightness_control", 
     "dotenv", "telegram", "pygetwindow", "bleak", "zeroconf", "kasa", 
-    "easyocr", "duckduckgo_search", "geopy"
+    "easyocr", "duckduckgo_search", "geopy", "bs4", "selenium"
 ]
 
 missing = []

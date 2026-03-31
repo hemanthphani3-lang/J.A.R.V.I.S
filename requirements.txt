@@ -17,3 +17,6 @@ customtkinter
 easyocr
 pillow
 pygetwindow
+beautifulsoup4
+selenium
+webdriver-manager

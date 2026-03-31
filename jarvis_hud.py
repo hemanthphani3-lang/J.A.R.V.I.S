@@ -34,9 +34,8 @@ class JarvisHUD(ctk.CTk):
         try:
             # Look for icon in current directory or specific asset paths
             possible_icons = [
-                "jarvis_icon.png",
-                os.path.join(os.path.dirname(__file__), "jarvis_icon.png"),
-                "C:\\Users\\heman\\.gemini\\antigravity\\brain\\a2a76498-eb8a-45eb-bbc6-84945912a801\\jarvis_icon_1774701021353.png" # Legacy fallback
+                r"C:\Users\heman\.gemini\antigravity\brain\f7855b3a-2702-4d89-b75e-a3c6f7d2bf24\jarvis_core_arc_reactor_1774965234132.png",
+                "jarvis_icon.png"
             ]
             icon_path = None
             for p in possible_icons:
@@ -56,14 +55,16 @@ class JarvisHUD(ctk.CTk):
             self.icon_label = ctk.CTkLabel(self.main_frame, text="[●]", font=("Orbitron", 40), text_color="#00F0FF")
             self.icon_label.pack(pady=40)
 
-        # APEX METRICS (Razor Thin)
         self.metrics_pane = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.metrics_pane.pack(pady=10, fill="x", padx=40)
+        self.metrics_pane.pack(pady=5, fill="both", expand=True, padx=20)
 
-        self.cpu_bar = self.add_stealth_metric("CPU", "#00F0FF")
-        self.ram_bar = self.add_stealth_metric("MEM", "#00AEEF")
-        self.bat_bar = self.add_stealth_metric("PWR", "#00FF7F")
-        self.neural_bar = self.add_stealth_metric("NEURAL", "#FF00FF") # Pulsing Pink
+        # Tech-Ring Canvas (Holographic Interface)
+        self.tech_canvas = ctk.CTkCanvas(self.metrics_pane, width=260, height=300, bg="#010101", 
+                                       highlightthickness=0, bd=0)
+        self.tech_canvas.pack(pady=10)
+        
+        self.scan_y = 0
+        self.scan_dir = 1
         
         # SINGULARITY: ORBITAL WIDGETS (Expanding detail card)
         self.orbital_btn = ctk.CTkButton(self.main_frame, text="EXPAND NEURAL HIVE", font=("Orbitron", 8), 
@@ -94,6 +95,8 @@ class JarvisHUD(ctk.CTk):
         threading.Thread(target=self.metrics_pulse, daemon=True).start()
         if self.message_queue:
             threading.Thread(target=self.queue_pulse, daemon=True).start()
+        
+        self.animate_tech_rings()
 
     def add_stealth_metric(self, tag, color):
         f = ctk.CTkFrame(self.metrics_pane, fg_color="transparent")
@@ -114,20 +117,62 @@ class JarvisHUD(ctk.CTk):
                 ram = psutil.virtual_memory().percent
                 bat = psutil.sensors_battery()
                 
-                self.cpu_bar["val"].configure(text=f"{cpu}%")
-                self.cpu_bar["bar"].set(cpu/100)
-                self.ram_bar["val"].configure(text=f"{ram}%")
-                self.ram_bar["bar"].set(ram/100)
-                if bat:
-                    self.bat_bar["val"].configure(text=f"{bat.percent}%")
-                    self.bat_bar["bar"].set(bat.percent/100)
-                
                 # Animate Neural Activity (Random pulse to simulate 'thinking' noise)
                 neural = random.randint(10, 90)
-                self.neural_bar["val"].configure(text=f"{neural}%")
-                self.neural_bar["bar"].set(neural/100)
             except: pass
             time.sleep(3)
+
+    def animate_tech_rings(self):
+        """Phase 1: Rotating Metric Rings & Scanning Ray"""
+        try:
+            self.tech_canvas.delete("tech")
+            self.angle += 0.04
+            cx, cy = 130, 150
+            
+            # System Metrics (CPU/RAM/BAT) as animated rings
+            cpu = psutil.cpu_percent()
+            ram = psutil.virtual_memory().percent
+            bat = psutil.sensors_battery().percent if psutil.sensors_battery() else 100
+            
+            # Draw Rings (Cyan/Mood based)
+            mood_color = getattr(self, 'current_mood_color', "#00F0FF")
+            
+            # --- CPU RING (Double Ring) ---
+            self.draw_arc_ring(cx, cy, 90, cpu, mood_color, 1.5, "CPU")
+            
+            # --- RAM RING ---
+            self.draw_arc_ring(cx, cy, 70, ram, "#00AEEF", -1.0, "RAM")
+            
+            # --- BATTERY RING ---
+            self.draw_arc_ring(cx, cy, 50, bat, "#00FF7F", 0.5, "PWR")
+            
+            # --- SCANNING RAY ---
+            self.scan_y += 3 * self.scan_dir
+            if self.scan_y > 280 or self.scan_y < 20: self.scan_dir *= -1
+            self.tech_canvas.create_line(20, self.scan_y, 240, self.scan_y, fill=mood_color, 
+                                        width=1, dash=(4,4), tags="tech", stipple="gray50" if os.name != 'nt' else None)
+            
+            # Numerical labels inside rings
+            self.tech_canvas.create_text(cx, cy, text=f"{int(cpu)}%", font=("Orbitron", 14, "bold"), fill=mood_color, tags="tech")
+            
+            self.after(50, self.animate_tech_rings)
+        except: pass
+
+    def draw_arc_ring(self, cx, cy, r, val, color, speed_mult, tag_text):
+        a = self.angle * speed_mult
+        start_angle = math.degrees(a)
+        extent = (val / 100) * 350
+        
+        # Outer Glowing Path
+        self.tech_canvas.create_arc(cx-r, cy-r, cx+r, cy+r, start=start_angle, extent=extent, 
+                                   outline=color, width=3, style="arc", tags="tech")
+        # Background faint path
+        self.tech_canvas.create_oval(cx-r, cy-r, cx+r, cy+r, outline="#121212", width=1, tags="tech")
+        
+        # Small metric labels
+        lx = cx + r * math.cos(a + math.pi/4)
+        ly = cy + r * math.sin(a + math.pi/4)
+        self.tech_canvas.create_text(lx, ly, text=tag_text, font=("Orbitron", 7), fill="#557799", tags="tech")
 
     def queue_pulse(self):
         # Mood Color Definitions
@@ -156,16 +201,10 @@ class JarvisHUD(ctk.CTk):
 
     def update_mood_visuals(self, color):
         """Visual Empathy: Update all HUD accents to match the mood"""
-        self.cpu_bar["val"].configure(text_color=color)
-        self.cpu_bar["bar"].configure(progress_color=color)
-        self.ram_bar["val"].configure(text_color=color)
-        self.ram_bar["bar"].configure(progress_color=color)
-        self.bat_bar["val"].configure(text_color=color)
-        self.bat_bar["bar"].configure(progress_color=color)
-        self.neural_bar["val"].configure(text_color=color)
-        self.neural_bar["bar"].configure(progress_color=color)
+        self.current_mood_color = color
         self.icon_label.configure(text_color=color)
         self.status_lbl.configure(text_color=color)
+        self.orbital_btn.configure(border_color=color)
 
     def inject_dialog(self, sender, text):
         is_jarvis = "JARVIS" in sender.upper()

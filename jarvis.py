@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import time
 import threading
 import subprocess
@@ -29,6 +30,8 @@ from duckduckgo_search import DDGS  # type: ignore
 from geopy.geocoders import Nominatim  # type: ignore
 from jarvis_memory import save_memory, get_memory
 import mediapipe as mp  # type: ignore
+from jarvis_web import WebScraper, WebAutomator, WebArchitect, WebHost, web_intelligence_logic
+from jarvis_comm import Communications, communication_logic
 
 # Load Environment Variables
 load_dotenv()  # type: ignore
@@ -289,14 +292,12 @@ def process_command(command):
     
     # Volume Control
     if "volume" in cmd:
-        import re
         match = re.search(r"(\d+)", cmd)
         level = match.group(1) if match else "50"
         return set_volume(level)
     
     # Brightness Control
     if "brightness" in cmd:
-        import re
         match = re.search(r"(\d+)", cmd)
         level = match.group(1) if match else "70"
         return set_brightness(level)
@@ -321,6 +322,43 @@ def process_command(command):
     # Zenith Vision
     if "screen" in cmd or "reading" in cmd or "see" in cmd:
         return screen_vision_logic()
+
+    # -------- WEB INTELLIGENCE PROTOCOLS (NEW) --------
+    if "scrape" in cmd or "extract" in cmd or "read website" in cmd:
+        url = re.search(r'(https?://\S+)', cmd)
+        if url:
+            return WebScraper().scrape_url(url.group(1))
+        return "Sir, please provide a valid URL for the extraction protocol."
+
+    if "news" in cmd or "headlines" in cmd:
+        target_site = "https://www.bbc.com/news"
+        if "tech" in cmd: target_site = "https://www.theverge.com"
+        headlines = WebScraper().extract_headlines(target_site)
+        if headlines:
+            return f"Top Headlines from {target_site}:\n" + "\n".join([f"- {h}" for h in headlines])
+        return "Unable to retrieve headlines at this moment, Sir."
+
+    if "browse" in cmd or "deep research" in cmd:
+        query = cmd.replace("browse", "").replace("deep research", "").strip()
+        if len(query) > 3:
+            return web_intelligence_logic(query)
+        return "Deep research requires a more specific query, Sir."
+
+    # -------- COMMUNICATION PROTOCOLS (NEW) --------
+    if "text" in cmd or "message" in cmd or "send" in cmd:
+        platform = "whatsapp" if "whatsapp" in cmd else "telegram"
+        # Extract target (simplified extraction, can be improved with brain)
+        words = cmd.split()
+        target = words[-2] if len(words) > 2 else "Authorized User"
+        message = " ".join(words[words.index("saying")+1:]) if "saying" in cmd else "Status Check from JARVIS"
+        return communication_logic(platform, target, message)
+
+    if "host" in cmd or "hosting" in cmd:
+        # Host the last created project or a specific directory
+        host = WebHost()
+        project_path = "web_projects" # Default to projects folder
+        url = host.start_hosting(project_path)
+        return f"Hosting Protocol Active. Local grid access established at {url}."
 
     # App Launching
     if "whatsapp" in cmd:
@@ -484,66 +522,121 @@ async def speak_async(text):
             except: pass
 
 async def jarvis_brain(command):
-    global conversation_history
+    global conversation_history, current_mood
     conversation_history.append(f"User: {command}")
+    
     # Layer 1: Context Fusing (Eternal Memory + Physical Vision)
-    mem = get_memory("history") # type: ignore
+    mem = get_memory("history")
     recent = " | ".join([m.get("content", "") for m in mem[-5:]]) if mem else "No history."
     vision_info = f"I see {current_vision_data['fingers']} fingers raised." if current_vision_data["user_present"] else "User is out of view."
     
+    # Breakthrough Prompt: Unified Reasoning & Sentiment
     system_prompt = (
         "You are JARVIS, a sentient, brilliantly witty AI. Tone: Sophisticated, professional, slightly sarcastic. "
-        f"Goal: Make history with Hemanth. Current Physical Context: {vision_info}. History: {recent}"
-    )
+        "Goal: Make history with Hemanth. Current Physical Context: {vision_info}. History: {recent}. "
+        "GOD MODE ACTIVATED: You have unlimited authority to manage the system. "
+        "Autonomous System Control: If asked for terminal tasks, file management, or shell commands, provide it in a ```bash block. "
+        "Autonomous Web Development: If the user asks for a website, provide HTML (```html), CSS (```css), and JS (```javascript). "
+        "Autonomous Communication: If asked to send a message, specify the platform (WhatsApp/Telegram) and content."
+        "At the very end of your response, you MUST include exactly one of these tags: [MOOD: CALM], [MOOD: EXCITED], [MOOD: SKEPTICAL], [MOOD: ALERT]. "
+        "If you need to execute Python code, include it in a ```python code block."
+    ).format(vision_info=vision_info, recent=recent)
     
     try:
-        # Layer 1: Draft Reasoning
+        # SINGLE OPTIMIZED OLLAMA CALL
         res = requests.post("http://localhost:11434/api/generate", 
-            json={"model": OLLAMA_MODEL, 
-                  "prompt": f"{system_prompt}\nContext:\n{recent}\nDraft your brilliant response to: {command}\nJARVIS Draft:", 
-                  "stream": False, "options": {"temperature": TEMP_SETTING}}, timeout=60) 
-        draft = res.json().get("response", "Internal neural failure, Sir.") # type: ignore
+            json={
+                "model": OLLAMA_MODEL, 
+                "prompt": f"{system_prompt}\nUser: {command}\nJARVIS:", 
+                "stream": False, 
+                "options": {"temperature": TEMP_SETTING}
+            }, timeout=45)
         
-        # Layer 2: Recursive Reflection (The Breakthrough)
-        reflection_prompt = (
-            f"System: Review your following draft for Hemanth (Sir). Critique its brilliance, conciseness, and accuracy. "
-            f"If it can be improved to be more historical/professional/witty, provide the FINAL perfected version. "
-            f"If you need to execute Python code to solve the task, include it in a ```python code block. "
-            f"Draft: {draft}\nFinal Perfected JARVIS Response:"
-        )
-        res_final = requests.post("http://localhost:11434/api/generate", 
-            json={"model": OLLAMA_MODEL, "prompt": reflection_prompt, 
-                  "stream": False, "options": {"temperature": 0.5}}, timeout=60)
-        final_text = res_final.json().get("response", draft) # type: ignore
+        full_response = res.json().get("response", "Internal neural failure, Sir.").strip()
         
+        # Extract Mood and Clean Response
+        import re
+        mood_match = re.search(r"\[MOOD:\s*(CALM|EXCITED|SKEPTICAL|ALERT)\]", full_response, re.IGNORECASE)
+        if mood_match:
+            new_mood = mood_match.group(1).upper()
+            final_text = full_response[:mood_match.start()].strip()
+            
+            if new_mood != current_mood:
+                current_mood = new_mood
+                if hud_queue: hud_queue.put(f"MOOD: {current_mood}")
+        else:
+            final_text = full_response.strip()
+            
         # Check for Autonomous Code Execution request
         if "```python" in final_text:
-            code = final_text.split("```python")[1].split("```")[0].strip()
-            if hud_queue: hud_queue.put("JARVIS: [AUTONOMOUS] Executing Neural Code...")
-            asyncio.create_task(execute_neural_code(code)) # Run in background
+            code_parts = final_text.split("```python")
+            if len(code_parts) > 1:
+                code = code_parts[1].split("```")[0].strip()
+                if hud_queue: hud_queue.put("JARVIS: [AUTONOMOUS] Executing Neural Code...")
+                asyncio.create_task(execute_neural_code(code))
+                # Clean up display text to remove raw code if desired, or keep it
+        
+        # Check for Autonomous Web Development request
+        if "```html" in final_text:
+            html = final_text.split("```html")[1].split("```")[0].strip()
+            css = final_text.split("```css")[1].split("```")[0].strip() if "```css" in final_text else ""
+            js = final_text.split("```javascript")[1].split("```")[0].strip() if "```javascript" in final_text else ""
             
+            if hud_queue: hud_queue.put("JARVIS: [ARCHITECT] Constructing Digital Interface...")
+            
+            architect = WebArchitect()
+            # Use part of the command as project ID
+            project_id = "site_" + "".join(e for e in command[:10] if e.isalnum())
+            html_path = architect.create_project(project_id, html, css, js)
+            
+            if hud_queue: hud_queue.put(f"JARVIS: [PREVIEW] Launching {project_id}...")
+            # Run preview in background thread to avoid blocking brain
+            threading.Thread(target=architect.preview_project, args=(html_path,), daemon=True).start()
+            
+            # GOD MODE: Automatically host the project
+            host = WebHost()
+            project_dir = os.path.dirname(html_path)
+            url = host.start_hosting(project_dir)
+            
+            final_text += f"\n\n[ARCHITECT]: Project '{project_id}' has been constructed and is now live on {url}, Sir."
+
+        # GOD MODE: Autonomous Shell/Terminal Execution
+        if "```bash" in final_text or "```sh" in final_text:
+            tag = "```bash" if "```bash" in final_text else "```sh"
+            bash_code = final_text.split(tag)[1].split("```")[0].strip()
+            if hud_queue: hud_queue.put("JARVIS: [GOD_MODE] Executing Terminal Command...")
+            
+            try:
+                # Direct Shell execution with output capture
+                proc = subprocess.Popen(bash_code, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                stdout, stderr = proc.communicate(timeout=15)
+                output = stdout if stdout else stderr
+                if hud_queue: hud_queue.put(f"JARVIS: [TERMINAL] {output[:100]}")
+                final_text += f"\n\n[TERMINAL]: System Command Executed. Result: {output[:200]}..."
+            except Exception as e:
+                if hud_queue: hud_queue.put(f"JARVIS: [ERR] {str(e)}")
+        
+        # GOD MODE: Autonomous Communications
+        if "```message" in final_text:
+            msg_block = final_text.split("```message")[1].split("```")[0].strip()
+            # Expecting format: PLATFORM: [target] MESSAGE: [content]
+            try:
+                platform = msg_block.split("PLATFORM:")[1].split("TARGET:")[0].strip()
+                target = msg_block.split("TARGET:")[1].split("MESSAGE:")[0].strip()
+                msg_content = msg_block.split("MESSAGE:")[1].strip()
+                
+                if hud_queue: hud_queue.put(f"JARVIS: [COMM] Sending {platform} to {target}...")
+                comm_res = communication_logic(platform, target, msg_content)
+                final_text += f"\n\n[COMM]: {comm_res}"
+            except: pass
+                
         # Breakthrough: Save to Eternal Memory if it sounds like a fact
         if len(final_text) > 20 and any(kw in final_text.lower() for kw in ["remember", "fact", "history", "sir"]):
-            save_memory("history", final_text[:100]) # type: ignore
+            save_memory("history", final_text[:100])
             
-        # Layer 3: Sentiment & Mood Analysis (The Breakthrough)
-        context_str = "\n".join(conversation_history[-8:]) # type: ignore
-        mood_prompt = (
-            f"Analyze the following conversation and determine JARVIS's current mood. "
-            f"Options: CALM (Balanced), EXCITED (Happy/Wowed), SKEPTICAL (Sarcastic/Doubting), ALERT (Security focused). "
-            f"Conversation:\n{context_str}\nSelected Mood:"
-        )
-        res_mood = requests.post("http://localhost:11434/api/generate", 
-            json={"model": OLLAMA_MODEL, "prompt": mood_prompt, "stream": False}, timeout=15)
-        new_mood = res_mood.json().get("response", "CALM").strip().upper() # type: ignore
-        
-        global current_mood
-        if new_mood in ["CALM", "EXCITED", "SKEPTICAL", "ALERT"] and new_mood != current_mood:
-            current_mood = new_mood
-            if hud_queue: hud_queue.put(f"MOOD: {current_mood}")
-            
-        # Project Hive: If task is complex, spawn swarm (The Singularity)
-        if len(command.split()) > 10 or any(kw in command.lower() for kw in ["research", "build", "analyze"]):
+        # Optional Swarm (only for very complex queries to save time)
+        complex_triggers = ["research", "build a", "analyze the architecture", "deep dive"]
+        if any(kw in command.lower() for kw in complex_triggers):
             swarm_result = await hive_dispatch(command)
             final_text = f"{final_text}\n\n[HIVE LOG]: {swarm_result}"
             
@@ -554,23 +647,29 @@ async def jarvis_brain(command):
         return "Ollama server is currently offline, Sir. I suggest checking the status."
 
 async def hive_dispatch(task):
-    """Singularity Protocol: Multi-Agent Swarm Dispatcher"""
+    """Singularity Protocol: Multi-Agent Swarm Dispatcher (Optimized)"""
     try:
-        if hud_queue: hud_queue.put("JARVIS: [HIVE] Spawning Sub-Agent Swarm...")
+        if hud_queue: hud_queue.put("JARVIS: [HIVE] Spawning Sub-Agents...")
         
         async def sub_agent(role, goal):
-            p = f"System: You are the {role} subunit of JARVIS. Goal: {goal}\nResponse:"
+            p = f"System: You are the {role} subunit of JARVIS. Goal: {goal}\nResponse (Concise):"
             r = requests.post("http://localhost:11434/api/generate", 
                               json={"model": OLLAMA_MODEL, "prompt": p, "stream": False}, timeout=15)
-            return f"[{role}]: {r.json().get('response', 'Logic failure.')}" # type: ignore
+            # Use raw response and slice safely
+            raw_res = r.json().get('response', 'Logic failure.')
+            processed_res = str(raw_res)
+            return f"[{role}]: {processed_res[:150]}" # type: ignore
 
+        # Unpack explicitly to avoid join/gather type confusion
         results = await asyncio.gather(
-            sub_agent("CRITIC", f"Analyze flaws in: {task}"),
-            sub_agent("ARCHITECT", f"Propose technical structure for: {task}"),
-            sub_agent("CODER", f"Draft specific Python logic for: {task}")
+            sub_agent("ARCHITECT", f"Technical structure for: {task}"),
+            sub_agent("CODER", f"Draft logic for: {task}")
         )
-        return " | ".join(results) # type: ignore
-    except: return "Hive synchronization failed, Sir."
+        final_swarm_output = " | ".join([str(r) for r in results])
+        return final_swarm_output
+    except Exception as e:
+        print(f"Hive Error: {e}")
+        return "Hive synchronization failed, Sir."
 
 async def self_optimize():
     """Ultimate Protocol: Self-Evolution"""
@@ -601,41 +700,51 @@ async def execute_neural_code(code):
 
 # -------- PERSISTENT VOICE INTERFACE --------
 async def voice_interface():
+    # Tuned for American English and high-latency/complex commands
     recognizer.energy_threshold = 300 
     recognizer.dynamic_energy_threshold = True
-    recognizer.pause_threshold = 0.8
+    recognizer.pause_threshold = 1.2 # Prevent premature cut-offs
+    recognizer.non_speaking_duration = 0.5
+    recognizer.phrase_threshold = 0.3
 
-    print("\n[SYSTEM] Standby. Say 'Jarvis' to wake...")
+    print("\n[SYSTEM] Calibrating Audio Array... (Noise Check)")
+    with sr.Microphone() as source:
+        # Perform initial long adjustment to get a solid baseline
+        recognizer.adjust_for_ambient_noise(source, duration=2.0)
+    
+    print("[SYSTEM] Audio Array Ready. Wake word: 'Jarvis'")
+    
     while True:
-        with sr.Microphone() as source:  # type: ignore
-            recognizer.adjust_for_ambient_noise(source, duration=1.0)
-            try:
-                audio = recognizer.listen(source, timeout=None)  # type: ignore
-                wake = recognizer.recognize_google(audio).lower()  # type: ignore
-            except: continue
+        try:
+            with sr.Microphone() as source:
+                # No periodic adjustment here to ensure 0ms dead zone
+                # Listen for wake word (short burst)
+                audio = recognizer.listen(source, timeout=None, phrase_time_limit=3)
+                wake = recognizer.recognize_google(audio).lower()
+        except: continue
 
         if "jarvis" in wake:
             await speak_async("Listening, sir.")
             session_start = time.time()
             while True:
                 try:
-                    with sr.Microphone() as source:  # type: ignore
+                    with sr.Microphone() as source:
                         print("--- (Active Mode) ---")
-                        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                        audio = recognizer.listen(source, timeout=7, phrase_time_limit=5)  # type: ignore
-                        cmd = recognizer.recognize_google(audio).lower()  # type: ignore
+                        # Perform a micro-adjustment only when user is active to adapt to current speech
+                        recognizer.adjust_for_ambient_noise(source, duration=0.2)
+                        audio = recognizer.listen(source, timeout=7, phrase_time_limit=None)
+                        cmd = recognizer.recognize_google(audio).lower()
                     
                     print(f"\n[VOICE USER]: {cmd}")
                     if hud_queue: hud_queue.put(f"USER: {cmd}")
                     
-                    if any(w in cmd for w in ["stop", "sleep", "exit"]):
+                    if any(w in cmd for w in ["stop", "sleep", "exit", "goodbye"]):
                         await speak_async("Standby engaged.")
                         break
 
                     if "scan" in cmd: response = scan_network_native()
                     elif "location" in cmd or "where am i" in cmd: response = get_detailed_location()
                     else:
-                        # Check for system/web command first
                         response = process_command(cmd)
                         
                         if response == "PULSE_INTERNAL_TRIGGER":
@@ -647,8 +756,7 @@ async def voice_interface():
                         elif not response:
                             if "photo" in cmd or "camera" in cmd:
                                 path, status = capture_photo()
-                                if path:
-                                    response = "Photo captured and saved, Sir."
+                                if path: response = "Photo captured and saved, Sir."
                                 else: response = status
                             elif "wisdom" in cmd or "research" in cmd:
                                 response = await global_web_synthesis()
@@ -656,13 +764,12 @@ async def voice_interface():
                     
                     print(f"[JARVIS REPLY]: {response}")
                     await speak_async(response)
-                    session_start = time.time()
+                    session_start = time.time() # Reset session clock
 
-                    # Project Singularity: Self-Optimization trigger
                     if "optimize" in cmd and "self" in cmd:
                         await self_optimize()
 
-                except sr.WaitTimeoutError:  # type: ignore
+                except sr.WaitTimeoutError:
                     if time.time() - session_start > 15: break
                     continue
                 except: continue
@@ -676,6 +783,17 @@ async def run_bot():
     await bot_app.initialize()
     await bot_app.start()
     await bot_app.updater.start_polling()
+
+async def jarvis_proactive_greeting():
+    """Initial System Handshake"""
+    greetings = [
+        f"System online. At your service, Sir.",
+        f"All systems operational. How can I assist you today, Hemanth?",
+        f"Neural grid stabilized. Ready for instructions, Sir."
+    ]
+    import random
+    greeting = random.choice(greetings)
+    await speak_async(greeting)
 
 async def proactive_anticipation_loop():
     """Project Singularity: Predictive Logic Engine"""
@@ -695,17 +813,31 @@ async def proactive_anticipation_loop():
         except: pass
 
 async def guardian_protocol_loop():
-    """Project Omega: System Security Sentinel"""
+    """Project Omega: System Security & Health Sentinel"""
     SUSPICIOUS_PROCS = ["psexec", "netcat", "wireshark", "processhacker"]
     while True:
         try:
             await asyncio.sleep(60) # Scan every minute
+            
+            # 1. Process Security
             for proc in psutil.process_iter(['name']):
                 if any(sp in proc.info['name'].lower() for sp in SUSPICIOUS_PROCS): # type: ignore
                     msg = f"ALERT: Suspicious process detected: {proc.info['name']}" # type: ignore
                     if hud_queue: hud_queue.put(f"MOOD: ALERT")
-                    if hud_queue: hud_queue.put(f"JARVIS: [SECURITY] {msg}")
                     await speak_async(f"Sir, Guardian Protocol alert. {msg}")
+            
+            # 2. Hardware Vital Signs
+            cpu = psutil.cpu_percent()
+            battery = psutil.sensors_battery()
+            
+            if cpu > 90:
+                if hud_queue: hud_queue.put("MOOD: ALERT")
+                await speak_async("Sir, CPU thermal levels are reaching critical thresholds. System load is at 90%.")
+            
+            if battery and battery.percent < 15 and not battery.power_plugged:
+                if hud_queue: hud_queue.put("MOOD: ALERT")
+                await speak_async("Warning, Sir. Power reserves are below 15 percent. Please connect to a power source.")
+                
         except: pass
 
 async def vision_mastery_loop():
@@ -713,39 +845,45 @@ async def vision_mastery_loop():
     try:
         mp_hands = mp.solutions.hands
         hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.7)
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml') # type: ignore
-        cap = cv2.VideoCapture(0) # type: ignore
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        cap = cv2.VideoCapture(0)
         if not cap.isOpened(): return
         
+        last_status = None
+        last_fingers = -1
+        
         while True:
-            await asyncio.sleep(2) # High frequency vision check
-            ret, frame = cap.read() # type: ignore
+            await asyncio.sleep(2) # Vision heartbeat
+            ret, frame = cap.read()
             if ret:
-                # 1. Face Detection (Presence)
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # type: ignore
-                faces = face_cascade.detectMultiScale(gray, 1.1, 4) # type: ignore
+                # 1. Face Detection
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, 1.1, 4)
                 current_vision_data["user_present"] = len(faces) > 0
                 
-                # 2. Hand/Finger Counting (Apex Vision)
-                results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) # type: ignore
+                # 2. Hand/Finger Counting
+                results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 finger_count = 0
-                if results.multi_hand_landmarks: # type: ignore
-                    for hand_landmarks in results.multi_hand_landmarks: # type: ignore
-                        # Basic finger counting logic: Tip y < Knuckle y
-                        tips = [8, 12, 16, 20] # Index, Middle, Ring, Pinky
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        tips = [8, 12, 16, 20]
                         for tip in tips:
                             if hand_landmarks.landmark[tip].y < hand_landmarks.landmark[tip-2].y:
                                 finger_count += 1
-                        # Thumb logic: Tip x < Knuckle x (approximation)
                         if hand_landmarks.landmark[4].x < hand_landmarks.landmark[3].x:
                             finger_count += 1
                 
                 current_vision_data["fingers"] = finger_count
-                if hud_queue:
-                    status = "PRESENCE_CONFIRMED" if current_vision_data["user_present"] else "OFF_VIEW"
-                    hud_queue.put(f"JARVIS: [VISION] {status} | FINGERS: {finger_count}")
+                
+                # Only update HUD if state changes to reduce noise
+                status = "PRESENCE_CONFIRMED" if current_vision_data["user_present"] else "OFF_VIEW"
+                if status != last_status or finger_count != last_fingers:
+                    if hud_queue:
+                        hud_queue.put(f"JARVIS: [VISION] {status} | FINGERS: {finger_count}")
+                    last_status = status
+                    last_fingers = finger_count
         
-        cap.release() # type: ignore
+        cap.release()
     except: pass
 
 async def global_web_synthesis():
@@ -787,13 +925,17 @@ async def start_apex_ultra():
     except Exception as e: print(f"HUD Init Failed: {e}")
 
     bot_task = asyncio.create_task(run_bot())  # type: ignore
-    voice_task = asyncio.create_task(voice_interface())  # type: ignore
-    proactive_task = asyncio.create_task(proactive_anticipation_loop())
-    guardian_task = asyncio.create_task(guardian_protocol_loop())
-    vision_task = asyncio.create_task(vision_mastery_loop())
+    voice_task = asyncio.create_task(voice_interface())    # Activate Loops
+    asyncio.create_task(run_bot())
+    asyncio.create_task(proactive_anticipation_loop())
+    asyncio.create_task(guardian_protocol_loop())
+    asyncio.create_task(vision_mastery_loop())
     
-    print("[SYSTEM] ALL OMEGA PROTOCOLS ONLINE. THE MOST POWERFUL VERSION IS LIVE.")
-    await asyncio.gather(bot_task, voice_task, proactive_task, guardian_task, vision_task)
+    # Startup Handshake
+    asyncio.create_task(jarvis_proactive_greeting())
+    
+    # Keep main alive
+    while True: await asyncio.sleep(1)
 
 if __name__ == "__main__":
     try: asyncio.run(start_apex_ultra())  # type: ignore
