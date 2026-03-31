@@ -88,18 +88,62 @@ class SystemController:
             return "Entering sleep mode. Standby engaged, Sir."
         except: return "Power management failed, Sir."
 
+    def open_application(self, app_name):
+        """Neural Link: Launch a specific system application."""
+        import subprocess
+        apps = {
+            "chrome": "chrome.exe",
+            "google": "chrome.exe",
+            "notepad": "notepad.exe",
+            "calculator": "calc.exe",
+            "calc": "calc.exe",
+            "code": "code",
+            "vs code": "code",
+            "browser": "chrome.exe",
+            "settings": "start ms-settings:",
+            "whatsapp": "whatsapp:",
+            "task manager": "taskmgr",
+            "explorer": "explorer",
+        }
+        
+        target = app_name.lower().strip()
+        cmd = apps.get(target, target) # Fallback to using name directly if not mapped
+        
+        try:
+            print(f"[SYSTEM] Initializing Launch: {cmd}")
+            if " " in cmd and ":" not in cmd: # Handle multi-word commands if needed
+                 os.system(f"start {cmd}")
+            else:
+                 os.system(f"start {cmd}" if ":" in cmd or "." in cmd else f"start {cmd}")
+            
+            return f"{target.capitalize()} protocol initiated, Sir."
+        except Exception as e:
+            return f"Failed to launch {target}: {e}"
+
 # Unified controller function
 def system_control_logic(cmd):
     ctrl = SystemController()
     
+    # 1. Volume
     if "volume" in cmd:
         import re
         match = re.search(r"(\d+)", cmd)
         if match: return ctrl.set_volume(match.group(1))
         return "Please specify a strategic volume percentage, Sir."
     
-    if "mute" in cmd: return ctrl.mute_unmute(mute=True)
+    # 2. Basic Muting
     if "unmute" in cmd: return ctrl.mute_unmute(mute=False)
+    if "mute" in cmd: return ctrl.mute_unmute(mute=True)
+    
+    # 3. Application Launching
+    launch_keywords = ["open", "launch", "start", "play"]
+    if any(k in cmd for k in launch_keywords):
+        for k in launch_keywords:
+            if k in cmd:
+                target = cmd.split(k)[-1].strip()
+                if target: return ctrl.open_application(target)
+    
+    # 4. Workspace Management
     if "arrange" in cmd or "workspace" in cmd: return ctrl.arrange_workspace()
     if "minimize all" in cmd or "clear visuals" in cmd: return ctrl.minimize_all()
     if "focus" in cmd:

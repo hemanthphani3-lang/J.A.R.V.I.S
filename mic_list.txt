@@ -1,0 +1,20 @@
+[00] Microsoft Sound Mapper - Input
+[01] Microphone Array (2- Realtek(R)
+[02] Microsoft Sound Mapper - Output
+[03] Speakers (2- Realtek(R) Audio)
+[04] Primary Sound Capture Driver
+[05] Microphone Array (2- Realtek(R) Audio)
+[06] Primary Sound Driver
+[07] Speakers (2- Realtek(R) Audio)
+[08] Speakers (2- Realtek(R) Audio)
+[09] Microphone Array (2- Realtek(R) Audio)
+[10] Speakers (Nahimic mirroring Wave Speaker)
+[11] Microphone (Realtek HD Audio Mic input)
+[12] Microphone Array (Realtek HD Audio Mic Array input)
+[13] Headphones (Realtek HD Audio 2nd output)
+[14] Stereo Mix (Realtek HD Audio Stereo input)
+[15] Speakers 1 (Realtek HD Audio output with SST)
+[16] Speakers 2 (Realtek HD Audio output with SST)
+[17] PC Speaker (Realtek HD Audio output with SST)
+[18] Speakers (Nahimic Wave Speaker)
+[19] Speakers (Nahimic Easy Surround)

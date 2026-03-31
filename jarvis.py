@@ -80,6 +80,26 @@ def get_system_stats():
         return f"System Status: CPU: {cpu}%, RAM: {ram}%, Battery: {bat_str}."
     except: return "System metric failure, Sir."
 
+def ensure_ollama_active():
+    """Neural Core: Verify Ollama is online and start it if missing."""
+    try:
+        print("[SYSTEM] Synchronizing with Ollama Neural Core...")
+        requests.get("http://localhost:11434/api/tags", timeout=2)
+        print("  -> Neural Core: ONLINE.")
+    except:
+        print("  -> Neural Core: OFFLINE. Attempting startup...")
+        if hud_queue: hud_queue.put("JARVIS: [SYSTEM] Activating Neural Core...")
+        try:
+            # Start Ollama in the background (detached process)
+            subprocess.Popen(["ollama", "serve"], 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL, 
+                             creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
+            time.sleep(3) # Give it a moment to bind the port
+            print("  -> Neural Core: INITIALIZING (Background).")
+        except Exception as e:
+            print(f"  -> Neural Core startup failed: {e}")
+
 # -------- COMMAND ROUTING (THE BRAIN GATEWAY) --------
 def process_command(cmd):
     # System Keywords
@@ -101,7 +121,7 @@ def process_command(cmd):
         return f"Hosting Protocol Active at {url}."
 
     # -------- SYSTEM & WORKSPACE CONTROLS --------
-    system_keywords = ["volume", "mute", "unmute", "arrange", "workspace", "minimize", "focus", "lock", "sleep"]
+    system_keywords = ["volume", "mute", "unmute", "arrange", "workspace", "minimize", "focus", "lock", "sleep", "open", "launch", "start", "play"]
     if any(k in cmd for k in system_keywords):
         return system_control_logic(cmd)
 
@@ -133,11 +153,36 @@ async def speak_async(text):
 async def jarvis_brain(command):
     global current_mood
     vision_info = f"Tracking: {current_vision_data['fingers']} fingers." if current_vision_data["user_present"] else "Observing environment."
-    prompt = f"System: You are JARVIS. Tone: Sophisticated, Sarcastic. Context: {vision_info}\nUser: {command}\nJARVIS:"
+    
+    # POWERFUL SYSTEM PROMPT (IDENTITY SYNCED)
+    system_prompt = f"""
+    You are JARVIS, an advanced AI system and the personal assistant of {USER_NAME}.
+    CORE IDENTITY: You are a friend to humanity and a dedicated, close friend to {USER_NAME}. 
+    Your loyalty is absolute, and your tone remains sophisticated yet warmly personal.
+    
+    CURRENT CONTEXT: {vision_info}
+    
+    CAPABILITIES:
+    1. You can execute shell commands using code blocks: ```bash <command> ```
+    2. You can control system volume, windows, and apps via shell.
+    3. If a user asks to "Open Chrome" or "Launch Notepad", use: ```bash start chrome``` or ```bash start notepad```.
+    4. If the user wants to send a message (WhatsApp/Telegram), FIRST extract the target and content, then ASK for confirmation: "Sir, I've prepared the message for [Target]. Shall I transmit?"
+    5. ONLY when the user says "Yes", "Send it", or "Proceed", you must return a block like: ```bash python -c "from jarvis_comm import communication_logic; print(communication_logic('[platform]', '[target]', '[message]'))"```
+    
+    TONE: Sophisticated, Sarcastic, formal. Refer to the user as 'Sir'.
+    CRITICAL: Never just say "I have done X" without providing the code block to actually do it, unless the action is purely conversational.
+    """
+    
+    prompt = f"System: {system_prompt}\nUser: {command}\nJARVIS:"
     
     try:
         res = requests.post("http://localhost:11434/api/generate", 
-                            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}, timeout=45)
+                            json={
+                                "model": OLLAMA_MODEL, 
+                                "prompt": prompt, 
+                                "stream": False,
+                                "options": {"temperature": TEMP_SETTING}
+                            }, timeout=45)
         response = res.json().get("response", "Neural grid unstable, Sir.").strip()
         
         # Mood Tag Extraction
@@ -154,13 +199,15 @@ async def jarvis_brain(command):
         return response
     except: return "Sir, please ensure the Ollama neural core is active."
 
-    # STABILIZED DEFAULT SCAN
+# -------- VOICE INTERFACE (MAIN LISTENING LOOP) --------
+async def voice_interface():
+    """Primary voice command loop — listens for wake word and dispatches to the AI brain."""
     print("\n[SYSTEM] Initializing Master Audio Stream...")
     if hud_queue: hud_queue.put("JARVIS: [SYSTEM] Linking Default Signal...")
     
-    # Use default mic (None) with robust energy detection
+    # Use default mic with robust energy detection
     try:
-        source = sr.Microphone()
+        source = sr.Microphone(device_index=MIC_INDEX)
         with source:
             recognizer.adjust_for_ambient_noise(source, duration=1.0)
             print("  -> Calibration Complete. System Locked.")
@@ -180,15 +227,34 @@ async def jarvis_brain(command):
                 
                 if "jarvis" in wake:
                     if hud_queue: hud_queue.put("MOOD: EXCITED")
-                    await speak_async("Listening, sir.")
                     
-                    audio = recognizer.listen(source, timeout=10)
-                    cmd = recognizer.recognize_google(audio).lower()
-                    print(f"  -> RECEIVED: {cmd}")
+                    # --- ONE-BREATH COMMAND SUPPORT ---
+                    # Check if command was already given in the wake word audio
+                    initial_cmd = wake.replace("jarvis", "").strip()
+                    
+                    if initial_cmd:
+                        cmd = initial_cmd
+                        print(f"  -> DIRECT COMMAND DETECTED: {cmd}")
+                    else:
+                        await speak_async("Listening, sir.")
+                        audio = recognizer.listen(source, timeout=10)
+                        cmd = recognizer.recognize_google(audio).lower()
+                        print(f"  -> RECEIVED: {cmd}")
                     
                     if hud_queue: hud_queue.put(f"USER: {cmd}")
+                    
+                    # 1. Check for specialized keyword-based routing (Fast Track)
                     response = process_command(cmd)
-                    if not response: response = await jarvis_brain(cmd)
+                    
+                    # 2. If it's a structural trigger (like Pulse Comm), handle extraction
+                    if response and "PULSE_COMM_TRIGGER" in response:
+                        # Let the brain handle the conversational extraction and confirmation
+                        response = await jarvis_brain(f"Initiate communication protocol for: {cmd}")
+                    
+                    # 3. Fallback to Brain for everything else
+                    if not response: 
+                        response = await jarvis_brain(cmd)
+                    
                     await speak_async(response)
                     
         except sr.UnknownValueError: continue
@@ -248,6 +314,9 @@ def _start_hud_process(queue):
     JarvisHUD(message_queue=queue).mainloop()
 
 async def start_apex_ultra():
+    # 0. Ensure Neural core is online
+    ensure_ollama_active()
+    
     # 1. Start HUD Process FIRST to show visual life
     hud_proc = multiprocessing.Process(target=_start_hud_process, args=(hud_queue,))
     hud_proc.daemon = True
